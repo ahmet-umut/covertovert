@@ -6,7 +6,11 @@
 Basic ICMP Documentation
 ========================
 
-Please add your names and group ID here by editing `index.rst` in the docs folder.
+group 4
+
+Ahmet Umut AKKAŞ
+
+Hiba CHOUKRI
 
 
 .. toctree::
