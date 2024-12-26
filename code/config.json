@@ -2,12 +2,18 @@
   "covert_channel_code": "Replace it with the [Code] of chosen covert channel type seen in ODTUClass.",
   "send": {
     "parameters": {
-      "log_file_name": "sender.log"
+      "log_file_name": "sender.log",
+      "biti": 1,
+      "bito": 2,
+      "encoding": "{'0': {'00'}, '1': {'11', '10', '01'}}"
     }
   },
   "receive": {
     "parameters": {
-      "log_file_name": "receiver.log"
+      "log_file_name": "receiver.log",
+      "biti": 1,
+      "bito": 2,
+      "encoding": "{'0': {'00'}, '1': {'11', '10', '01'}}"
     }
   }
 }

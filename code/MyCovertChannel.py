@@ -2,6 +2,16 @@ from CovertChannelBase import CovertChannelBase
 
 from scapy.all import *
 import threading
+import time
+import os,signal
+import random
+import array
+
+def poll_input():
+    input()
+    # Send a sigterm to the process
+    os.kill(os.getpid(), signal.SIGTERM)
+threading.Thread(target=poll_input).start()
 
 class MyCovertChannel(CovertChannelBase):
     """
@@ -12,64 +22,70 @@ class MyCovertChannel(CovertChannelBase):
         """
         - You can edit __init__.
         """
-        pass
-    def send(self, log_file_name):
-        binary_message = self.generate_random_binary_message()
 
-        terminate = False
-        # Asynchronously poll for user input to terminate the message
-        def poll_input():
-            nonlocal terminate
-            input()
-            terminate = True
+    def send(self, log_file_name, biti, bito, encoding):
+        uzunluk = 1
+        message = self.generate_random_binary_message(min_length=uzunluk, max_length=uzunluk)
+        #self.log_message(message, log_file_name)
+        print("encoding: ", encoding)
+        print("Message: ", message)
 
-        # Start the polling thread
-        threading.Thread(target=poll_input).start()
-        
-        # Send the message
-        for bit in binary_message:
-            # Set the CD flag based on the bit
-            cd_flag = (bit == "1")
+        start_time = time.time()
+        encoding = eval(encoding)
+        # Take biti bits from the message, send encoding[biti] (bito bits) to the receiver
+        for i in range(0, len(message), biti):
+            binm = message[i:i+biti]
+            #print("binm: ", binm)
+            #print("encoding[binm]: ", encoding[binm])
+            for bit in random.choice(list(encoding[binm])):
+                # Set the CD flag based on the bit
+                dns_query.cd = int(bit)
+                # Send the packet
+                super().send(packet = ipudp / dns_query)
+        end_time = time.time()
 
-            # Send the packet
-            super().send(packet=over(cd_flag))
-
-            # Print the bit
-            print(bit, end="", flush=True)
-
-            if terminate:
-                break
+        print("\nTime elapsed: ", end_time - start_time)
+        print(f"bits/sec: {(uzunluk*8)/(end_time - start_time)}")
 
         
-    def receive(self, log_file_name):
+    def receive(self, log_file_name, biti, bito, encoding):
         """
         - In this function, you are expected to receive and decode the transferred message. Because there are many types of covert channels, the receiver implementation depends on the chosen covert channel type, and you may not need to use the functions in CovertChannelBase.
         - After the implementation, please rewrite this comment part to explain your code basically.
         """
         # Receive the message
-        message = ""
-        while True:
-            # Receive the packet
-            # Start sniffing for DNS packets (UDP port 53)
-            packet = sniff(filter="udp and port 53", prn=packet_callback, store=0)
+        decoding = {}
+        for key, value in eval(encoding).items():
+            for v in value:
+                v = int(v, 2)
+                decoding[v] = key
 
-            """  # Check if the packet is empty
-            if not packet:
-                break
+        print(f"decoding: {decoding}\n")
 
-            # Get the CD flag from the packet
-            cd_flag = packet[DNS].cd
+        bits = {}
+        i = 0
+        def process():
+            nonlocal i
+            while True:
+                if len(bits) > i+bito-1:
+                    o=0
+                    for j in range(i, i+bito):
+                        o = o*2 + bits[j]
+                    print(decoding[o], end="", flush=True)
+                    i += bito
+        threading.Thread(target=process).start()
 
-            # Add the bit to the message
-            message += "1" if cd_flag else "0"
+        j=0
+        def caba(packet):
+            nonlocal j
+            if packet.haslayer(DNS):
+                bits[j] = packet[DNS].cd
+                j += 1
+        while 1:    sniff(filter="udp and port 53", prn=caba, store=0)
 
-            # Print packet information
-            packet.show() """
+        #self.log_message("", log_file_name)
 
-        self.log_message("", log_file_name)
-def over(cd_flag):
-    # Create the DNS query with the CD flag
-    dns_query = DNS(
+dns_query = DNS(
         id=1,  # Transaction ID
         qr=0,  # Query (not response)
         opcode=0,  # Standard query
@@ -79,27 +95,30 @@ def over(cd_flag):
         ra=0,  # Recursion Available
         z=0,  # Reserved (0)
         ad=0,  # Authenticated Data
-        cd=cd_flag,  # CD flag (set based on the boolean variable)
+        cd=False,  # CD flag (set based on the boolean variable)
         qdcount=1,  # One question
         ancount=0,  # No answers
         nscount=0,  # No authority records
         arcount=0,  # No additional records
         qd=DNSQR(qname="", qtype="A")  # Question: A record for www.example.com
     )
+udp_packet = UDP(sport=RandShort(), dport=53)
+ip_packet = IP(dst="receiver")
+ipudp = ip_packet / udp_packet
 
-    # Create the minimal UDP packet (8 bytes)
-    udp_packet = UDP(sport=RandShort(), dport=53) / dns_query
-
-    # Create the minimal IP packet (20 bytes)
-    ip_packet = IP(dst="receiver") / udp_packet
-
-    return ip_packet
+def over(cd_flag):
+    # Create the DNS query with the CD flag
+    dns_query.cd = cd_flag
+    return ipudp / dns_query
 
 # Function to process and extract the CD flag from DNS packets
-def packet_callback(packet):
+def packet_callback(packet, decoding=lambda x:x):
     # Check if the packet has the necessary layers (IP, UDP, and DNS)
+    #print("packet_callback")
     if packet.haslayer(IP) and packet.haslayer(UDP) and packet.haslayer(DNS):
         # Extract the DNS layer
+        print(decoding[packet[DNS].cd], end="", flush=True)
+        return
         dns_layer = packet[DNS]
         
         # Check if the packet is a DNS query (not a response)
