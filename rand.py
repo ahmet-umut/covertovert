@@ -1,6 +1,6 @@
 import random
 
-n, m = 1, 2  # Example values for n and m
+n, m = 2, 3  # Example values for n and m
 s_n = range(2**n)
 s_m = list(range(2**m))
 random.shuffle(s_m)
