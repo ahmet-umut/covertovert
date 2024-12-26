@@ -38,7 +38,7 @@ class MyCovertChannel(CovertChannelBase):
 
         How the encoding dictionary is used: When a biti-bit sequence is encoded, a random element of encoding[biti] is chosen, and sent bit by bit.
         """
-        uzunluk = 999
+        uzunluk = 2
         message = self.generate_random_binary_message(min_length=uzunluk, max_length=uzunluk)
         #self.log_message(message, log_file_name)
         print("encoding: ", encoding)
@@ -124,24 +124,3 @@ dns_query = DNS(
 udp_packet = UDP(sport=RandShort(), dport=53)
 ip_packet = IP(dst="receiver")
 ipudp = ip_packet / udp_packet
-
-def over(cd_flag):
-    # Create the DNS query with the CD flag
-    dns_query.cd = cd_flag
-    return ipudp / dns_query
-
-# Function to process and extract the CD flag from DNS packets
-def packet_callback(packet, decoding=lambda x:x):
-    # Check if the packet has the necessary layers (IP, UDP, and DNS)
-    #print("packet_callback")
-    if packet.haslayer(IP) and packet.haslayer(UDP) and packet.haslayer(DNS):
-        # Extract the DNS layer
-        print(decoding[packet[DNS].cd], end="", flush=True)
-        return
-        dns_layer = packet[DNS]
-        
-        # Check if the packet is a DNS query (not a response)
-        if dns_layer.qr == 0:  # Query
-            cd_flag = dns_layer.cd  # Extract the CD flag
-            #print the bit
-            print("1" if cd_flag else "0", end="", flush=True)
