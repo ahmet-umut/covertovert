@@ -73,16 +73,16 @@ class MyCovertChannel(CovertChannelBase):
 
         # self.generate_random_message(uzunluk, uzunluk)
         message_buff = self.generate_random_message(uzunluk, uzunluk)
-        message = self.convert_string_message_to_binary(message_buff)
+        binary_message = self.convert_string_message_to_binary(message_buff)
 
         print("Message string: ", message_buff)
-        print("Message binary: ", message)
+        print("Message binary: ", binary_message)
 
         start_time = time.time()
         encoding = eval(encoding)
-        # Take biti bits from the message, send encoding[biti] (bito bits) to the receiver
-        for i in range(0, len(message), biti):
-            binm = message[i:i+biti]
+        # Take biti bits from the binary_message, send encoding[biti] (bito bits) to the receiver
+        for i in range(0, len(binary_message), biti):
+            binm = binary_message[i:i+biti]
             # print("binm: ", binm)
             # print("encoding[binm]: ", encoding[binm])
             for bit in random.choice(list(encoding[binm])):
@@ -96,7 +96,7 @@ class MyCovertChannel(CovertChannelBase):
         print("\nTime elapsed: ", end_time - start_time)
         print(f"bits/sec: {(uzunluk*8)/(end_time - start_time)}")
 
-        self.log_message(message, log_file_name)
+        self.log_message(binary_message, log_file_name)
 
     def receive(self, log_file_name, biti, bito, encoding):
         """
@@ -113,63 +113,34 @@ class MyCovertChannel(CovertChannelBase):
 
         # print(f"decoding: {decoding}\n")
 
-        message = ""
-        message_buff = ""
+        binary_message = ""
 
         bits = []
         i = 0
 
-        running = True
-        thread = None
-
-        def process():
-            nonlocal i, message, message_buff, running, thread
-            while True:
-                if len(bits) > i+bito-1:
-                    # Extract the bits from the received packets
-                    o = "".join(str(bits[i+j]) for j in range(bito))
-                    # print(bits)
-                    message_buff += self.convert_eight_bits_to_character(
-                        decoding[o])
-                    print(message_buff, end="", flush=True)
-                    message += decoding[o]
-                    self.log_message(message, log_file_name)
-                    if message.endswith("00101110"):
-                        running=False
-                        # terminate the thread
-                        if thread:
-                            thread.join()
-                        return
-                        os.kill(os.getpid(), signal.SIGTERM)
-                    i += bito
-        #thread = threading.Thread(target=process).start()
-
         def caba(packet):
-            nonlocal i, message, message_buff, running, thread
+            nonlocal i, binary_message
             if packet.haslayer(DNS):
                 bits.append(packet[DNS].cd)
             if len(bits) > i+bito-1:
                 # Extract the bits from the received packets
                 o = "".join(str(bits[i+j]) for j in range(bito))
-                # print(bits)
                 print(decoding[o], end="", flush=True)
-                message_buff += self.convert_eight_bits_to_character(
-                    decoding[o])
-                message += decoding[o]
-                self.log_message(message, log_file_name)
-                if message.endswith("00101110"):
-                    print("\n receiver must finish now.")
-                    running=False
-                    # terminate the thread
+                binary_message += decoding[o]
+                self.log_message(binary_message, log_file_name)
+                if binary_message.endswith("00101110"):
+                    print("\n decoded binary_message:", end="")
+                    for mi in range(0, len(binary_message), 8):
+                        print(self.convert_eight_bits_to_character(binary_message[mi:mi+8]), end="")
+                    print()
                     return True
-                    os.kill(os.getpid(), signal.SIGTERM)
                 i += bito
                 return 0
         sniff(filter="udp and port 53", store=0, stop_filter=caba)
 
-        print("Message: ", message_buff)
-        self.log_message(message, log_file_name)
-    def generate_json_file(filename="./code/config.json"):
+        self.log_message(binary_message, log_file_name)
+        
+    def generate_json_file(filename="./code/config.json"):  # Used to generate the correct dictionary for given biti and bito
         # Step 1. Set parameters
         biti, bito = 2, 4
         set_i = list(range(2**biti))        # [0, 1, 2, 3] for biti=2
