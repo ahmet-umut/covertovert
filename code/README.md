@@ -9,8 +9,8 @@ This project implements a covert storage channel using protocol field manipulati
 - *Protocol Field Manipulation:* Uses the CD flag in DNS packets for encoding and decoding bits of information.
 - *Custom Encoding and Decoding:* Supports configurable encoding and decoding dictionaries for flexible bit transmission.
 - *Random Binary Message Generation:* Dynamically generates a random binary message of specified length.
-- *Logging:* Logs transmitted and received messages for verification and analysis.
-- *Performance Measurement:* Calculates and reports the covert channel capacity in bits per second.
+- *Logging:* Logs binary representations as strings of "0" and "1"'s (characters) transmitted and received messages for verification and analysis.
+- *Performance Measurement:* Calculates and reports the covert channel capacity in bits per second in the send() function call.
 
 ## Code Description
 
@@ -20,19 +20,19 @@ The main functionality is implemented in the MyCovertChannel class, which is der
 
 This function transmits a binary message using a covert channel. The key steps are:
 
-1. Generate a binary message of length 128 bits.
-2. Use the provided encoding dictionary to map biti bits of the message to bito bits.
+1. Generate a binary message.
+2. Use the provided encoding dictionary to map "biti" bits of the message to "bito" bits. Details about this parameter will be explained.
 3. Send the mapped bits bit by bit as DNS packets, modifying the CD flag to convey the information.
-4. Measure the time taken to transmit the message and calculate the covert channel capacity.
+4. Measure the time taken for sender to send the message and calculate the covert channel capacity.
 
 ### receive
 
 This function listens for incoming packets and decodes the received bits into the original binary message. The steps are:
 
-1. Construct a decoding dictionary based on the provided encoding dictionary.
+1. Construct a decoding dictionary based on the provided encoding dictionary. The provided dictionary, thus, should be generated correctly.
 2. Capture packets using the sniff function and extract the CD flag values.
 3. Decode the received bits and reconstruct the message.
-4. Log the reconstructed message and terminate when the full message is received.
+4. Log the reconstructed message (in binary string representation format) and terminate when last 8 bits correspond to "." and the received bit count is a multiply of 8.
 
 ## How to Run
 
@@ -45,61 +45,42 @@ This function listens for incoming packets and decodes the received bits into th
 ### Usage
 
 1. Clone the repository and navigate to the project directory.
-2. Ensure the configuration parameters are correctly set in by running the `rand.py` code to generate `config.json`.
+2. Ensure the configuration parameters are correctly set in by running the `rand.py` code to generate `config.json`. However, the given config.json already satisfies the constraints.
 3. Use the provided Makefile commands for running and testing:
-   - To receive data:
-     ```bash
-     make receive
-     ```
-     Command will be run at first to capture the received packets.
+	 - To receive data:
+		 ```bash
+		 make receive
+		 ```
+		 Command will be run at first to capture the received packets.
 
-   - To send data:
-     ```bash
-     make send
-     ```
-     To send the covert channel packets.
+	 - To send data:
+		 ```bash
+		 make send
+		 ```
+		 To send the covert channel packets.
 
-   - To compare the logs of the send and receive processes:
-     ```bash
-     make compare
-     ```
-     Command will be run to check whether the message transfer is successfully completed or not.
+	 - To compare the logs of the send and receive processes:
+		 ```bash
+		 make compare
+		 ```
+		 Command will be run to check whether the message transfer is successfully completed or not.
 
 4. Generate documentation using:
-   ```bash
-   make documentation
-   
-5. To terminate the process, press any key.
+	 ```bash
+	 make documentation
+	 ```
 
-## Parameter Limitations
 
-- *Message Length:* The minimum and maximum message length is set to 16 characters (128 bits).
+## Parameters
+
+- *biti* = the input bit-size of the encoding dictionary. Must be a divisor of the total bit-length of the message.
+- *bito* = the output bit-size of possible encodings of each biti-bits. This has no limitation except that (obviously) bito>=biti: It is not possible to decode a bit string from a uniformly random distribution into a smaller length.
 - *Encoding Dictionary:* Each biti-bit string must map to one or more unique bito-bit strings. Ensure that biti <= bito.
-- *Default Configuration:*
-  - biti = 2: 2 bits are taken from the message at a time.
-  - bito = 2: 2 bits are sent at a time.
-  - Encoding dictionary: { '00': {'11'}, '01': {'01'}, '10': {'00'}, '11': {'10'} }
-  - Decoding dictionary: { '11': '00', '01': '01', '00': '10', '10': '11' }
 - *Network Environment:* The script is designed for UDP over port 53 (DNS). Ensure proper network permissions.
-
-## Measuring Covert Channel Capacity
-
-Follow these steps to measure the covert channel capacity:
-
-1. Generate a binary message of length 128 bits.
-2. Start the timer before sending the first packet.
-3. Stop the timer after the last packet is sent.
-4. Calculate the time difference (in seconds).
-5. Use the formula:
-   
-   Capacity (bits/sec) = 128 / Time (seconds)
-   
-6. The measured capacity is logged in the console.
 
 ## Example Output
 
 ### Sender
-
 
 ````
 Sender is running!
@@ -121,9 +102,34 @@ Received message: V.
 
 ## Performance
 
-The covert channel capacity achieved is influenced by the network latency, encoding efficiency, and other environmental factors. Ensure a stable network for optimal performance.
+Performance is directly related to biti/bito for obvious reasons. You can try the code yourself, however, let me give you some samples. (Message length is always 8 characters.)
 
-## Notes
+#### sample 1
+{'0': {'0'}, '1': {'1'}}  biti=1 bito=1	-> 34 bits/s
+#### sample 2
+{'00': {'10'}, '01': {'00'}, '10': {'01'}, '11': {'11'}}	biti=2	bito=2	-> 38 bits/s
+#### sample 3
+{'00': {'001'}, '01': {'100', '000'}, '10': {'011', '111', '110'}, '11': {'101', '010'}}	biti=2 bito=3	-> 26 bits/s
+#### sample 4
+{'0': {'10', '01'}, '1': {'00', '11'}}	biti=1 bito=2	-> 19 bits/s
+#### sample 5
+{'0': {'101', '100', '011', '110', '111'}, '1': {'001', '000', '010'}}	biti=1 bito=3	-> 13 bits/s
+#### sample 6
+{'0': {'1111', '0110', '0111', '0101', '0100', '0000', '0010', '1001', '0011'}, '1': {'1101', '0001', '1110', '1000', '1010', '1100', '1011'}}	biti=1 bito=4	-> 9 bits/s
 
-- Modify the dst IP address in the script to match the receiver's IP.
-- Use proper safety precautions when running the script in a networked environment to avoid unintended disruptions.
+### comment about examples
+As you can see, the bitrate is proportional to the biti/bito.
+
+### explanation of the dictionary value
+Let me go over the dictionary parameter (encoder dictionary) in the sample 3 to better convey what it is used for:
+{'00': {'001'}, '01': {'100', '000'}, '10': {'011', '111', '110'}, '11': {'101', '010'}}
+
+00->{001} means that whenever 00 occurs in the input message, 001 is sent.
+01->{100,000} means that %50 of the time when a 01 occurs, it is sent as 100 and %50 it is sent as 000.
+10->{011,111,110} means that there is 1/3 chance 10 is encoded as each element in the set.
+...
+
+So, the resulting decoder will reverse map all elements in the sets to the corresponding values. So for this case:
+001->00, 100->01, 000->01, 011->10, 111->10, 110->10, 101->11, 010->11
+
+I hope the explanation is clear. The rand.py (given in the .tar.gz file also) is used to create a encoder in the config.json given desired biti and bito values. While the encoder'd be enough to infer biti and bito, we believe explicitly stating those primal parameters is more reasonable.

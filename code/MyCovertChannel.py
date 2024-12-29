@@ -22,7 +22,7 @@ class MyCovertChannel(CovertChannelBase):
 
     def __init__(self):
         """
-        We put the module namespace parameters in the constructor of the class
+        We put the constantly used parameters in the constructor of the class as members. This way, we can easily access them in the send and receive functions.
         """
         self.dns_params = {
             "id": 1,
@@ -128,7 +128,7 @@ class MyCovertChannel(CovertChannelBase):
                 print(decoding[o], end="", flush=True)
                 binary_message += decoding[o]
                 self.log_message(binary_message, log_file_name)
-                if binary_message.endswith("00101110"):
+                if binary_message.endswith("00101110") and len(binary_message) % 8 == 0:
                     print("\n decoded binary_message:", end="")
                     for mi in range(0, len(binary_message), 8):
                         print(self.convert_eight_bits_to_character(binary_message[mi:mi+8]), end="")
@@ -139,10 +139,13 @@ class MyCovertChannel(CovertChannelBase):
         sniff(filter="udp and port 53", store=0, stop_filter=caba)
 
         self.log_message(binary_message, log_file_name)
-        
+
     def generate_json_file(filename="./code/config.json"):  # Used to generate the correct dictionary for given biti and bito
+        """
+        - In this function a JSON file that includes the parameters of the covert channel is generated. This JSON file will be used to configure the sender and the receiver. The biti and bito parameters are used to determine the size of the keys and values' elements in the encoding dictionary. The encoding dictionary is stored as a string in the JSON file.
+        """
         # Step 1. Set parameters
-        biti, bito = 2, 4
+        biti, bito = 4,4
         set_i = list(range(2**biti))        # [0, 1, 2, 3] for biti=2
         set_o = list(range(2**bito))        # [0, 1, 2, 3] for bito=2
 

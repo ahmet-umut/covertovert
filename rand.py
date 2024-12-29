@@ -33,7 +33,7 @@ def generate_json_file(filename="./code/config.json"):
 
     # Step 3. Create the JSON structure
     json_data = {
-        "covert_channel_code": "Replace it with the [Code] of chosen covert channel type seen in ODTUClass.",
+        "covert_channel_code": "CSC-PSV-DNS-CDF",
         "send": {
             "parameters": {
                 "log_file_name": "sender.log",
