@@ -4,7 +4,7 @@ import json
 
 def generate_json_file(filename="./code/config.json"):
     # Step 1. Set parameters
-    biti, bito = 2, 4
+    biti, bito = 4,4
     set_i = list(range(2**biti))        # [0, 1, 2, 3] for biti=2
     set_o = list(range(2**bito))        # [0, 1, 2, 3] for bito=2
 

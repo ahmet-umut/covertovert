@@ -6,39 +6,13 @@ import time
 import os
 import signal
 import random
-import array
-
-dns_params = {
-    "id": 1,
-    "qr": 0,
-    "opcode": 0,
-    "aa": 0,
-    "tc": 0,
-    "rd": 1,
-    "ra": 0,
-    "z": 0,
-    "ad": 0,
-    "cd": False,
-    "qdcount": 1,
-    "ancount": 0,
-    "nscount": 0,
-    "arcount": 0
-}
-
-qd_params = {
-    "qname": "",
-    "qtype": "A"
-}
-
 
 def poll_input():
     input()
     # Send a sigterm to the process
     os.kill(os.getpid(), signal.SIGTERM)
 
-
 threading.Thread(target=poll_input).start()
-
 
 class MyCovertChannel(CovertChannelBase):
     """
@@ -48,8 +22,34 @@ class MyCovertChannel(CovertChannelBase):
 
     def __init__(self):
         """
-        - You can edit __init__.
+        We put the module namespace parameters in the constructor of the class
         """
+        self.dns_params = {
+            "id": 1,
+            "qr": 0,
+            "opcode": 0,
+            "aa": 0,
+            "tc": 0,
+            "rd": 1,
+            "ra": 0,
+            "z": 0,
+            "ad": 0,
+            "cd": False,
+            "qdcount": 1,
+            "ancount": 0,
+            "nscount": 0,
+            "arcount": 0
+        }
+        self.qd_params = {
+            "qname": "",
+            "qtype": "A"
+        }
+
+        self.dns_query = DNS(**self.dns_params, qd=DNSQR(**self.qd_params))
+
+        self.udp_packet = UDP(sport=RandShort(), dport=53)
+        self.ip_packet = IP(dst="receiver")
+        self.ipudp = self.ip_packet / self.udp_packet
 
     def send(self, log_file_name, biti, bito, encoding):
         """
@@ -66,7 +66,7 @@ class MyCovertChannel(CovertChannelBase):
 
         How the encoding dictionary is used: When a biti-bit sequence is encoded, a random element of encoding[biti] is chosen, and sent bit by bit.
         """
-        uzunluk = 2
+        uzunluk = 8
         # message = self.generate_random_binary_message(
         #     min_length=uzunluk, max_length=uzunluk)
         # self.log_message(message, log_file_name)
@@ -88,9 +88,9 @@ class MyCovertChannel(CovertChannelBase):
             for bit in random.choice(list(encoding[binm])):
                 # Set the CD flag based on the bit
                 # print(bit)
-                dns_query.cd = int(bit)
+                self.dns_query.cd = int(bit)
                 # Send the packet
-                super().send(packet=ipudp / dns_query)
+                super().send(packet=self.ipudp / self.dns_query)
         end_time = time.time()
 
         print("\nTime elapsed: ", end_time - start_time)
@@ -132,6 +132,7 @@ class MyCovertChannel(CovertChannelBase):
                     message += decoding[o]
                     self.log_message(message, log_file_name)
                     if message.endswith("00101110"):
+                        return
                         os.kill(os.getpid(), signal.SIGTERM)
                     i += bito
         threading.Thread(target=process).start()
@@ -143,10 +144,59 @@ class MyCovertChannel(CovertChannelBase):
             sniff(filter="udp and port 53", prn=caba, store=0)
 
         self.log_message(message, log_file_name)
+    def generate_json_file(filename="./code/config.json"):
+        # Step 1. Set parameters
+        biti, bito = 2, 4
+        set_i = list(range(2**biti))        # [0, 1, 2, 3] for biti=2
+        set_o = list(range(2**bito))        # [0, 1, 2, 3] for bito=2
 
+        # Shuffle set_o to create a random mapping
+        random.shuffle(set_o)
 
-dns_query = DNS(**dns_params, qd=DNSQR(**qd_params))
+        # Helper function to convert an integer to n-bit binary string
+        def fn(x, n): return bin(x)[2:].zfill(n)
 
-udp_packet = UDP(sport=RandShort(), dport=53)
-ip_packet = IP(dst="receiver")
-ipudp = ip_packet / udp_packet
+        # Step 2. Create the random mapping dict
+        # Initialize dict with keys '00', '01', '10', '11'
+        dict_mapping = {fn(k, biti): set() for k in range(2**biti)}
+
+        # For each i in set_i, map it to the (shuffled) set_o[i]
+        for i in set_i:
+            dict_mapping[fn(i, biti)].add(fn(set_o[i], bito))
+
+        # set_o[4:] is empty for 2-bit input/output, but we'll keep the code generic
+        setm = set(set_o[2**biti:])  # might be empty for these parameters
+        for i in setm:
+            dict_mapping[fn(random.choice(set_i), biti)].add(fn(i, bito))
+
+        # Convert sets to strings for JSON (or to lists if you prefer)
+        # We'll store the entire dictionary mapping as a string (like the sample).
+        dict_mapping_str = str(dict_mapping)
+
+        # Step 3. Create the JSON structure
+        json_data = {
+            "covert_channel_code": "Replace it with the [Code] of chosen covert channel type seen in ODTUClass.",
+            "send": {
+                "parameters": {
+                    "log_file_name": "sender.log",
+                    "biti": biti,
+                    "bito": bito,
+                    "encoding": dict_mapping_str
+                }
+            },
+            "receive": {
+                "parameters": {
+                    "log_file_name": "receiver.log",
+                    "biti": biti,
+                    "bito": bito,
+                    "encoding": dict_mapping_str
+                }
+            }
+        }
+
+        # Step 4. Write the JSON to file
+        with open(filename, "w") as f:
+            json.dump(json_data, f, indent=2)
+
+        print(f"JSON file '{filename}' has been generated!")
+
