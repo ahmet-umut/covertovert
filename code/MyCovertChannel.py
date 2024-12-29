@@ -7,12 +7,12 @@ import os
 import signal
 import random
 
-def poll_input():
+""" def poll_input():
     input()
     # Send a sigterm to the process
     os.kill(os.getpid(), signal.SIGTERM)
 
-threading.Thread(target=poll_input).start()
+threading.Thread(target=poll_input).start() """
 
 class MyCovertChannel(CovertChannelBase):
     """
@@ -119,8 +119,11 @@ class MyCovertChannel(CovertChannelBase):
         bits = []
         i = 0
 
+        running = True
+        thread = None
+
         def process():
-            nonlocal i, message, message_buff
+            nonlocal i, message, message_buff, running, thread
             while True:
                 if len(bits) > i+bito-1:
                     # Extract the bits from the received packets
@@ -132,17 +135,39 @@ class MyCovertChannel(CovertChannelBase):
                     message += decoding[o]
                     self.log_message(message, log_file_name)
                     if message.endswith("00101110"):
+                        running=False
+                        # terminate the thread
+                        if thread:
+                            thread.join()
                         return
                         os.kill(os.getpid(), signal.SIGTERM)
                     i += bito
-        threading.Thread(target=process).start()
+        #thread = threading.Thread(target=process).start()
 
         def caba(packet):
+            nonlocal i, message, message_buff, running, thread
             if packet.haslayer(DNS):
                 bits.append(packet[DNS].cd)
-        while 1:
-            sniff(filter="udp and port 53", prn=caba, store=0)
+            if len(bits) > i+bito-1:
+                # Extract the bits from the received packets
+                o = "".join(str(bits[i+j]) for j in range(bito))
+                # print(bits)
+                print(decoding[o], end="", flush=True)
+                message_buff += self.convert_eight_bits_to_character(
+                    decoding[o])
+                message += decoding[o]
+                self.log_message(message, log_file_name)
+                if message.endswith("00101110"):
+                    print("\n receiver must finish now.")
+                    running=False
+                    # terminate the thread
+                    return True
+                    os.kill(os.getpid(), signal.SIGTERM)
+                i += bito
+                return 0
+        sniff(filter="udp and port 53", store=0, stop_filter=caba)
 
+        print("Message: ", message_buff)
         self.log_message(message, log_file_name)
     def generate_json_file(filename="./code/config.json"):
         # Step 1. Set parameters
